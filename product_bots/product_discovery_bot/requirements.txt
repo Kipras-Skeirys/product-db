@@ -1,0 +1,4 @@
+psycopg[binary]
+psycopg_pool
+python-dotenv
+curl_cffi

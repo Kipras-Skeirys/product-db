@@ -1,0 +1,84 @@
+services:
+  ingestions_db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: product_ingestions
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ingestions_db_data:/var/lib/postgresql/data
+      - ./product_bots/product_ingestions_db/001_initial_schema.sql:/docker-entrypoint-initdb.d/001_initial_schema.sql
+      - ./product_bots/product_ingestions_db/002_discovery_queue.sql:/docker-entrypoint-initdb.d/002_discovery_queue.sql
+      - ./product_bots/product_ingestions_db/003_job_claims_and_failures.sql:/docker-entrypoint-initdb.d/003_job_claims_and_failures.sql
+      - ./product_bots/product_ingestions_db/004_source_status.sql:/docker-entrypoint-initdb.d/004_source_status.sql
+      - ./product_bots/product_ingestions_db/005_product_queue_context.sql:/docker-entrypoint-initdb.d/005_product_queue_context.sql
+      - ./product_bots/product_ingestions_db/006_unique_source_name.sql:/docker-entrypoint-initdb.d/006_unique_source_name.sql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "localhost", "-U", "postgres", "-d", "product_ingestions"]
+      interval: 5s
+      retries: 10
+
+  reaper:
+    build: ./product_bots/product_ingestions_db/workers
+    command: python reaper.py
+    environment:
+      DB_HOST: ingestions_db
+      DB_PORT: 5432
+      DB_NAME: product_ingestions
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      ingestions_db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  circuit_breaker:
+    build: ./product_bots/product_ingestions_db/workers
+    command: python circuit_breaker.py
+    environment:
+      DB_HOST: ingestions_db
+      DB_PORT: 5432
+      DB_NAME: product_ingestions
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      ingestions_db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  discovery_bot:
+    build: ./product_bots/product_discovery_bot
+    volumes:
+      - ./adapters:/app/adapters:ro
+    environment:
+      DB_HOST: ingestions_db
+      DB_PORT: 5432
+      DB_NAME: product_ingestions
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      ingestions_db:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_signal: SIGINT
+
+  data_bot:
+    build: ./product_bots/product_data_bot
+    volumes:
+      - ./adapters:/app/adapters:ro
+    environment:
+      DB_HOST: ingestions_db
+      DB_PORT: 5432
+      DB_NAME: product_ingestions
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    depends_on:
+      ingestions_db:
+        condition: service_healthy
+    restart: unless-stopped
+    stop_signal: SIGINT
+
+volumes:
+  ingestions_db_data:

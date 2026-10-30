@@ -1,0 +1,1 @@
+One folder per source, named after its domain (`example.com` → `example_com/`). The bots load the adapters from here, and the discovery bot adds each `source.json` to `data_sources` on start.

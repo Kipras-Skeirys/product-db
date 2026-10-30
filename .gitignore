@@ -1,0 +1,8 @@
+.DS_Store
+.env
+__pycache__/
+*.pyc
+third_party_data_dumps/*
+!third_party_data_dumps/readme.md
+adapters/*
+!adapters/readme.md

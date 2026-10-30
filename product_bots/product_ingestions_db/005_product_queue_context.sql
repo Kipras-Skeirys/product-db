@@ -1,0 +1,1 @@
+ALTER TABLE product_queue ADD COLUMN context JSONB NOT NULL DEFAULT '{}';
